@@ -3,7 +3,12 @@ import { IsString, IsNotEmpty } from 'class-validator';
 export class CreateUserDto {
   @IsString()//defines the validations rules this decorators
   @IsNotEmpty()
-  name: string;
+  username: string;
+
+  @IsString()
+  @IsNotEmpty()
+  password: string;
+
 
   @IsString()
   @IsNotEmpty()

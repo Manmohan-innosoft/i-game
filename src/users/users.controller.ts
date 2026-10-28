@@ -1,19 +1,20 @@
-import { Controller,Get, Param,ParseIntPipe,Body,Post, Query,DefaultValuePipe , UseGuards, Delete,} from '@nestjs/common';
+import { UseGuards,Controller,Get, Param,ParseIntPipe,Body,Post, Query,DefaultValuePipe, Delete,} from '@nestjs/common';
 import {UsersService} from './users.service.js';
 import { CreateUserDto } from './dto/create-user.dto.js';
 import { PaginationQueryDto } from './dto/pagination-query.dto.js';
 import { RoleValidationPipe } from './pipes/role-validation/role-validation.pipe.js';
 import { RoleGuard } from './guards/role/role.guard.js';
 import {Roles} from './decorators/roles.decorator.js'
-
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard.js';
 
 @Controller('users')
 export class UsersController {
     constructor( private readonly usersService : UsersService){}
 
 // get users 
+@UseGuards(JwtAuthGuard,RoleGuard)
     @Get()
-    // @Roles('admin','developer')
+    @Roles('admin','developer')
     getUsers(){
         return this.usersService.getUsers();
     }
@@ -59,9 +60,11 @@ getUsersByRole(
     getUserById(@Param('id' , ParseIntPipe) id : number) {
     return this.usersService.getUserById(id);
 }
+
+// t create a new user with DTOs
     @Post()
     createUser(@Body() body : CreateUserDto){
-        return this.usersService.createUser(body.name, body.role);
+        return this.usersService.createUser(body.username, body.password, body.role);
     }
 
 // delete route with guard 

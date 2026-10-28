@@ -1,24 +1,44 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service.js';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
 
+
+  constructor(private readonly prisma: PrismaService) {}
     // to get all the users 
 
-     private users = [
-    { id: 101, name: 'mike', role: 'developer' },
-    { id: 102, name: 'will', role: 'admin' },
-    { id: 103, name: 'ele', role: 'user' },
-  ];
+  //    private users = [
+  //   { id: 101, name: 'mike', role: 'developer' },
+  //   { id: 102, name: 'will', role: 'admin' },
+  //   { id: 103, name: 'ele', role: 'user' },
+  // ];
 
-    getUsers(){
-        return this.users;
+   async getUsers(){
+        return this.prisma.user.findMany({
+          select: {
+            id: true,
+            name: true,
+            role:true,
+            createdAt: true,
+          
+          },
+        })
     }
 
     // to get a single user from the ID
-    getUserById(id : number){
+    async getUserById(id : number){
 
-     const user = this.users.find((user) => user.id === id);
+     const user = await this.prisma.user.findUnique({
+        where: { id },
+        select: {
+          id: true,
+          name: true,
+          role:true,
+          createdAt: true,  
+        },
+     });
 
      if(!user){
         throw new NotFoundException(`User with ID ${id} not found`);
@@ -29,45 +49,85 @@ export class UsersService {
     // to create a new user 
 
 
-    createUser(name: string, role: string) {
-    const newUser = {
-      id: Math.max(0, ...this.users.map((user) => user.id)) + 1,
-      name,
-      role,
-    };
-
-    this.users.push(newUser);
+    async createUser(name: string, password: string, role: string) {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const newUser = await this.prisma.user.create({
+      data: {
+        username: name,
+        role: role,
+        password: hashedPassword,
+      },
+      select:{
+        id: true,
+        username: true,
+        role: true,
+        createdAt: true,          
+      }
+    } );
 
     return newUser;
   }
 
 //   query param logic
 
-   getPaginatedUsers(limit: number, offset: number) {
-   return this.users.slice(offset, offset + limit);
+   async getPaginatedUsers(limit: number, offset: number) {
+   return this.prisma.user.findMany({
+     take: limit,
+     skip: offset,
+     select:{
+        id: true,
+        username: true,
+        role: true,
+        createdAt: true,          
+      },
+   });
   }
 
 //   role based users to test the custom pipe
 
-getUsersByRole(role: string) {
-  return this.users.filter((user) => user.role === role);
+async getUsersByRole(role: string) {
+  return this.prisma.user.findMany({
+    where: {
+      role: role,
+    },
+    select: {
+      id: true,
+      username: true,
+      role: true,
+      createdAt: true,          
+    },
+  }); 
 }
 
 // delete logic 
 
-deleteUser(id : number){
-     const index = this.users.findIndex((user) => user.id === id);
+async deleteUser(id : number){
 
-  if (index === -1) {
-    throw new NotFoundException(`User with ID ${id} not found`);
-  }
+ try {
+      const deletedUser = await this.prisma.user.delete({
+        where: { id },
+        select: {
+          id: true,
+          username: true,
+          role: true,
+        },
+      });
 
-  const deletedUser = this.users.splice(index, 1);
+       return {
+        message: 'User deleted successfully',
+        user: deletedUser,
+      };
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        'code' in error &&
+        error.code === 'P2025'
+      ) {
+        throw new NotFoundException(`User with ID ${id} not found`);
+      }
 
-  return {
-    message: 'User deleted successfully',
-    user: deletedUser[0],
-  };
+      throw error;
+    }
 }
 
 }
